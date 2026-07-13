@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Podłącz rejestrator Longse",
+        "description": "Podaj dane dostępowe do rejestratora NVR/DVR (panel web, port 80).",
+        "data": {
+          "host": "Adres IP lub nazwa hosta",
+          "port": "Port",
+          "username": "Użytkownik",
+          "password": "Hasło"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nie udało się połączyć z rejestratorem. Sprawdź adres IP i port.",
+      "invalid_auth": "Nieprawidłowy użytkownik lub hasło.",
+      "unknown": "Nieoczekiwany błąd."
+    },
+    "abort": {
+      "already_configured": "Ten rejestrator jest już skonfigurowany."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ustawienia Longse NVR/DVR",
+        "description": "Wybór strumienia RTSP dla podglądu na żywo i zdjęć. Main jest zalecany (wyższa niezawodność); Sub bywa podatny na sporadyczne uszkodzone klatki na tym urządzeniu.",
+        "data": {
+          "stream_type": "Strumień"
+        }
+      }
+    }
+  },
+  "selector": {
+    "stream_type": {
+      "options": {
+        "main": "Main (główny, wyższa jakość)",
+        "sub": "Sub (substream, niższa jakość)"
+      }
+    }
+  }
+}

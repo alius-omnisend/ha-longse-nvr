@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Longse NVR/DVR",
+        "description": "Enter the connection details for your NVR/DVR (web panel/API, port 80).",
+        "data": {
+          "host": "Host or IP address",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the device. Check the IP address and port.",
+      "invalid_auth": "Invalid username or password.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This device is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Longse NVR/DVR options",
+        "description": "Choose the RTSP stream used for live view and snapshots. Main is recommended (more reliable); Sub is more prone to occasional corrupted frames on this device family.",
+        "data": {
+          "stream_type": "Stream"
+        }
+      }
+    }
+  },
+  "selector": {
+    "stream_type": {
+      "options": {
+        "main": "Main (higher quality, more reliable)",
+        "sub": "Sub (substream, lower quality)"
+      }
+    }
+  }
+}

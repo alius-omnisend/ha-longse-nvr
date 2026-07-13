@@ -1,0 +1,12 @@
+{
+  "domain": "longse_nvr",
+  "name": "Longse NVR/DVR (Cantonk / BitVision)",
+  "codeowners": ["@Noneawe"],
+  "config_flow": true,
+  "dependencies": ["ffmpeg"],
+  "documentation": "https://github.com/Noneawe/ha-longse-nvr",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/Noneawe/ha-longse-nvr/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
