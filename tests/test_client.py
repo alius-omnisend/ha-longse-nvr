@@ -22,6 +22,8 @@ from longse_nvr.client import (
     UnsupportedDevice,
 )
 
+pytestmark = pytest.mark.asyncio
+
 HOST, PORT, USERNAME, PASSWORD = "nvr.example.local", 80, "admin", "test-password-123"
 
 # Fixture matching the real device flow: dynamic cookie name, never a real token.

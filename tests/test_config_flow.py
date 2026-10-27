@@ -12,6 +12,8 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
+pytestmark = pytest.mark.asyncio
+
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResultType

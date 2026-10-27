@@ -17,9 +17,13 @@ from pathlib import Path
 
 import pytest
 
-_PKG_DIR = Path(__file__).resolve().parent / "custom_components" / "longse_nvr"
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    # Needed for `import custom_components.longse_nvr.*` (a namespace package).
+    sys.path.insert(0, str(_REPO_ROOT))
+
 _pkg = types.ModuleType("longse_nvr")
-_pkg.__path__ = [str(_PKG_DIR)]
+_pkg.__path__ = [str(_REPO_ROOT / "custom_components" / "longse_nvr")]
 sys.modules.setdefault("longse_nvr", _pkg)
 
 try:
