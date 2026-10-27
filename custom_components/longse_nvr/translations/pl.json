@@ -15,6 +15,7 @@
     "error": {
       "cannot_connect": "Nie udało się połączyć z rejestratorem. Sprawdź adres IP i port.",
       "invalid_auth": "Nieprawidłowy użytkownik lub hasło.",
+      "unsupported_device": "Urządzenie odpowiada, ale to chyba nie jest zgodny rejestrator Longse/BitVision (brak lub nieoczekiwana odpowiedź API).",
       "unknown": "Nieoczekiwany błąd."
     },
     "abort": {

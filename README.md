@@ -10,6 +10,13 @@ API over plain HTTP (not a binary protocol like XMEye/DVRIP), identifiable
 by `/statics/lib/utils/common/encryption/longseSha256.js` on the device's
 web panel.
 
+> **This is a fork** of [Noneawe/ha-longse-nvr](https://github.com/Noneawe/ha-longse-nvr)
+> with a session-cookie compatibility fix (the device returns a dynamically
+> named `sessionID_<suffix>` cookie; the client now sends it back verbatim
+> instead of renaming it — this fixes `Failed to connect to the device` on
+> firmware such as `NVR-N31_BV_V2.1.3.x`). Install and update **this**
+> repository, not the upstream one, to get the fix.
+
 Supports **multiple devices at once** — each registrator is added as its
 own config entry, so you can mix e.g. a DVR at home and one at a family
 member's place in the same Home Assistant instance.
@@ -38,12 +45,13 @@ add it.
 
 ### Via HACS (recommended)
 
-This integration is not (yet) in the default HACS store, but you can add it
-as a custom repository:
+This integration is not (yet) in the default HACS store, but you can add
+this fork as a custom repository:
 
-1. HACS → the three-dot menu (top right) → **Custom repositories**.
-2. Repository: `https://github.com/Noneawe/ha-longse-nvr`, category:
-   **Integration**.
+1. HACS → **Integrations** → the three-dot menu (⋮, top right) →
+   **Custom repositories**.
+2. Repository: `https://github.com/aliuspetraska/ha-longse-nvr`, category:
+   **Integration** → **Add**.
 3. Install **"Longse NVR/DVR (Cantonk / BitVision)"** from the HACS list.
 4. Restart Home Assistant (Settings → System → Restart — required for HA to
    pick up the new integration code).
@@ -53,6 +61,12 @@ as a custom repository:
    password.
 7. Repeat step 5 for every additional device — each one becomes its own
    entry.
+
+Future updates (including any fixes made in this fork) are delivered
+through HACS from **this** repository — update via HACS like any other
+custom integration. If you previously installed the upstream
+`Noneawe/ha-longse-nvr` version, remove it first so only one copy of the
+`longse_nvr` domain exists.
 
 ### Manual installation
 
@@ -119,7 +133,7 @@ the login handshake and other protocol findings.
 
 Bug reports, hardware reports (different Longse-family models/firmware/
 rebrands) and pull requests are welcome — please open an
-[issue](https://github.com/Noneawe/ha-longse-nvr/issues).
+[issue](https://github.com/aliuspetraska/ha-longse-nvr/issues).
 
 ## License
 

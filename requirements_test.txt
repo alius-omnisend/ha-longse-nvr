@@ -1,0 +1,8 @@
+aiohttp
+pytest
+pytest-asyncio
+# Only needed for tests/test_config_flow.py (skipped automatically without it):
+pytest-homeassistant-custom-component
+# manifest declares the builtin `ffmpeg` integration as a dependency; HA's
+# test harness tries to set it up when loading the integration's flow.
+ha-ffmpeg
