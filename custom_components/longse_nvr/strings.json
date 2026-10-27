@@ -15,6 +15,7 @@
     "error": {
       "cannot_connect": "Failed to connect to the device. Check the IP address and port.",
       "invalid_auth": "Invalid username or password.",
+      "unsupported_device": "The device responded, but it does not appear to be a compatible Longse/BitVision NVR (missing or unexpected API response).",
       "unknown": "Unexpected error."
     },
     "abort": {
