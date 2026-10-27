@@ -17,12 +17,24 @@ available over HTTPS):
 ```
 POST /api/<endpoint>
 Content-Type: application/json
+Api-Version: v4.0.0
 {"action": "get"|"set"|"delete"|"test", "data": {...}}
 ```
 
-After login, subsequent requests carry `Cookie: sessionID=<token>`. This
-lets the integration talk to the device natively over `aiohttp`, with no
-executor jobs needed for the control channel (only RTSP/ffmpeg needs one).
+(The device's own web client sends `application/x-www-form-urlencoded` as
+the jQuery-default content type with the same raw JSON-text body, plus
+`Api-Version`/`Timestamp` headers on every request; the firmware accepts
+`application/json` equally — verified on live hardware.)
+
+After login, subsequent requests carry the session cookie **verbatim**, as
+returned in the login response's `data.cookie` — a full `name=value` pair
+whose *name* is dynamic (`sessionID_<suffix>`, e.g. how the device's own
+`login.js` handles it: `a.cookie.split("=")` → `setCookie(name, value)`).
+Reconstructing a fixed `Cookie: sessionID=<token>` header discards the
+suffix and is rejected with `HTTP 401` on firmware that issues suffixed
+names. This lets the integration talk to the device natively over
+`aiohttp`, with no executor jobs needed for the control channel (only
+RTSP/ffmpeg needs one).
 
 ## Login: salted challenge-response SHA-256, not a bare hash
 

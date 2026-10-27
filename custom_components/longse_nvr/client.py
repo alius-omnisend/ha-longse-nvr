@@ -7,6 +7,7 @@ zweryfikowany na żywym sprzęcie testowym — pełne wyprowadzenie kroków
 Transport to zwykłe HTTP/JSON (nie binarny protokół jak DVRIP/XMEye), więc
 całość działa natywnie na `aiohttp` bez potrzeby executor jobów.
 """
+
 from __future__ import annotations
 
 import base64
@@ -14,7 +15,7 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import aiohttp
@@ -24,6 +25,10 @@ from .const import EVENT_ALL_MASK
 _LOGGER = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
+
+# Te same wartości co w webowym `callHttp()` z public.js na urządzeniu —
+# wysyłane na KAŻDYM requeście przez oryginalny klient web.
+API_VERSION = "v4.0.0"
 
 
 class NvrError(Exception):
@@ -61,6 +66,13 @@ class SessionExpired(NvrError):
 
 class InvalidAuth(NvrError):
     """Urządzenie odrzuciło login (zły użytkownik/hasło)."""
+
+
+class UnsupportedDevice(NvrError):
+    """Urządzenie odpowiada po HTTP, ale nie mówi oczekiwanym API —
+    brak endpointów `/api/*` (HTTP 404), nie-JSONowa/niekompletna odpowiedź
+    albo brak typu szyfrowania `sha256-1` w login-capabilities (np. zwykły
+    serwer web pod tym IP albo całkiem inna platforma/firmware)."""
 
 
 @dataclass
@@ -126,9 +138,19 @@ class LongseNvrClient:
         payload: dict[str, Any] = {"action": action}
         if data is not None:
             payload["data"] = data
-        headers = {}
+        # Headery identyczne jak w webowym `callHttp()` (public.js). Firmware
+        # ich formalnie nie wymaga (zweryfikowane na żywo — samo JSON body
+        # wystarcza), ale wysyłanie ich jak oryginalny klient web nic nie
+        # kosztuje i chroni przed wariantami firmware, które mogłyby ich
+        # wymagać.
+        headers = {
+            "Api-Version": API_VERSION,
+            "Timestamp": datetime.now(UTC).isoformat(),
+        }
         if authed and self._cookie:
-            headers["Cookie"] = f"sessionID={self._cookie}"
+            # `_cookie` to kompletna para `nazwa=wartość` zwrócona przez login
+            # (nazwa jest dynamiczna, np. `sessionID_<suffix>` — patrz login()).
+            headers["Cookie"] = self._cookie
 
         try:
             async with self._session.post(
@@ -139,14 +161,25 @@ class LongseNvrClient:
             ) as resp:
                 if resp.status == 401:
                     raise SessionExpired(f"{path} -> HTTP 401")
+                if resp.status == 404:
+                    raise UnsupportedDevice(
+                        f"{path} -> HTTP 404 (endpoint nie istnieje)"
+                    )
                 if resp.status != 200:
                     raise CannotConnect(f"{path} -> HTTP {resp.status}")
-                result = await resp.json(content_type=None)
+                try:
+                    result = await resp.json(content_type=None)
+                except ValueError as err:
+                    raise UnsupportedDevice(
+                        f"{path} -> nieprawidłowa odpowiedź JSON"
+                    ) from err
         except aiohttp.ClientError as err:
             raise CannotConnect(str(err)) from err
         except TimeoutError as err:
             raise CannotConnect(str(err)) from err
 
+        if not isinstance(result, dict):
+            raise UnsupportedDevice(f"{path} -> nieprawidłowa odpowiedź JSON")
         if result.get("code") != 0:
             raise ApiError(path, result.get("code"))
         return result.get("data") or {}
@@ -167,20 +200,33 @@ class LongseNvrClient:
             {"username": self.username},
             authed=False,
         )
-        param = caps["param"]
-        salt = param["salt"]
-        challenge = param["challenge"]
-        iterations = param["iterations"]
-        enable_iteration = param["enableIteration"]
-        session_id = caps["sessionID"]
-        enc_type = caps["encryptionType"][0]
+        try:
+            param = caps["param"]
+            salt = param["salt"]
+            challenge = param["challenge"]
+            iterations = param["iterations"]
+            enable_iteration = param["enableIteration"]
+            session_id = caps["sessionID"]
+            enc_types = caps["encryptionType"]
+        except (KeyError, TypeError) as err:
+            raise UnsupportedDevice(
+                "login-capabilities bez oczekiwanych pól — to raczej nie jest "
+                "rejestrator na platformie Longse/BitVision"
+            ) from err
+        if "sha256-1" not in enc_types:
+            raise UnsupportedDevice(
+                f"login-capabilities nie oferuje sha256-1 (dostępne: {enc_types})"
+            )
+        enc_type = "sha256-1"
 
         now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         datetime_b64 = base64.b64encode(now.encode()).decode()
 
         # UWAGA: SHA-256 tu operuje na surowych bajtach (jak JS `charCodeAt`),
         # nie UTF-8 — stąd `latin-1`, patrz PROTOCOL_NOTES.md.
-        g = _sha256_hex((self.username + salt + datetime_b64 + self.password).encode("latin-1"))
+        g = _sha256_hex(
+            (self.username + salt + datetime_b64 + self.password).encode("latin-1")
+        )
         f = _sha256_hex(_hex_to_raw(g) + challenge.encode("latin-1"))
         if enable_iteration:
             for _ in range(iterations):
@@ -202,12 +248,26 @@ class LongseNvrClient:
         except ApiError as err:
             raise InvalidAuth("logowanie odrzucone przez urządzenie") from err
 
+        # `data.cookie` to kompletna para `nazwa=wartość` z DYNAMICZNĄ nazwą
+        # (`sessionID_<suffix>`) — web UI robi `cookie.split("=")` i
+        # `setCookie(name, value)` (patrz login.js na urządzeniu). Wysyłamy ją
+        # z powrotem pod DOKŁADNIE tą samą nazwą — stare zachowanie (zawsze
+        # `sessionID=<wartość>`) odrzucało suffix i kończyło się HTTP 401 na
+        # każdym uwierzytelnionym requeście na firmware zwracającym suffix.
+        # Uwaga: NIGDY nie logować/wstawiać tej wartości do wyjątków.
         cookie = result.get("cookie")
-        if not cookie or "=" not in cookie:
+        if not isinstance(cookie, str):
             raise InvalidAuth("odpowiedź logowania bez cookie sesji")
-        self._cookie = cookie.split("=", 1)[1]
+        # Odrzuć ewentualne atrybuty (`; Path=/...`) — zostaje czysta para.
+        cookie = cookie.split(";", 1)[0].strip()
+        name, sep, value = cookie.partition("=")
+        if not sep or not name.strip() or not value.strip():
+            raise InvalidAuth("odpowiedź logowania z nieprawidłowym cookie sesji")
+        self._cookie = cookie
 
-    async def _authed_post(self, path: str, action: str, data: dict | None = None) -> dict:
+    async def _authed_post(
+        self, path: str, action: str, data: dict | None = None
+    ) -> dict:
         """POST uwierzytelniony, z jednorazowym ponownym logowaniem przy
         `ApiError` lub `SessionExpired` (wygasła sesja — ZWERYFIKOWANE
         NA ŻYWO 2026-07-03, patrz docstring `SessionExpired`: urządzenie
@@ -247,15 +307,16 @@ class LongseNvrClient:
         w `channelList` przychodzi jako base64-podobny ciąg) — deszyfrowanie
         NIE jest zaimplementowane (nie było potrzebne do ustalenia
         `enable`/`ip`/`port`, które przychodzą jawnym tekstem)."""
-        if self._cookie is None:
-            await self.login()
-        cap = await self._post(
+        cap = await self._authed_post(
             "/api/security/capability", "get", {"username": self.username}
         )
-        enc_type = cap["encryptionType"][0]
-        param = cap["param"][enc_type]
-        salt = param["salt"]
-        iterations = param["iterations"]
+        try:
+            enc_type = cap["encryptionType"][0]
+            param = cap["param"][enc_type]
+            salt = param["salt"]
+            iterations = param["iterations"]
+        except (KeyError, IndexError, TypeError) as err:
+            raise UnsupportedDevice("security/capability bez oczekiwanych pól") from err
 
         now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         datetime_b64 = base64.b64encode(now.encode()).decode()

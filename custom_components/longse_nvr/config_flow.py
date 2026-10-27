@@ -5,20 +5,26 @@ zwracany przez `/api/network/p2p` (NIE o IP — może się zmienić przy DHCP,
 i NIE o `serialNo` z `/api/system/device-info`, które jest bezużytecznym
 literałem "Network Video Recorder" — patrz PROTOCOL_NOTES.md).
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
-from .client import CannotConnect, InvalidAuth, LongseNvrClient, NvrError
+from .client import (
+    CannotConnect,
+    InvalidAuth,
+    LongseNvrClient,
+    NvrError,
+    UnsupportedDevice,
+)
 from .const import (
     CONF_CHANNEL_COUNT,
     CONF_SERIAL,
@@ -66,9 +72,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 info = await client.get_summary()
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
+            except UnsupportedDevice:
+                errors["base"] = "unsupported_device"
             except (CannotConnect, NvrError):
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001 - nieznany błąd, logujemy pełny traceback
+            except Exception:  # nieznany błąd, logujemy pełny traceback
                 _LOGGER.exception("Nieoczekiwany błąd podczas konfiguracji longse_nvr")
                 errors["base"] = "unknown"
             else:
@@ -112,7 +120,9 @@ class OptionsFlow(config_entries.OptionsFlow):
         current = self._config_entry.options.get(CONF_STREAM_TYPE, DEFAULT_STREAM_TYPE)
         schema = vol.Schema(
             {
-                vol.Required(CONF_STREAM_TYPE, default=current): selector.SelectSelector(
+                vol.Required(
+                    CONF_STREAM_TYPE, default=current
+                ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[STREAM_TYPE_MAIN, STREAM_TYPE_SUB],
                         translation_key=CONF_STREAM_TYPE,
